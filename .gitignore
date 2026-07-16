@@ -1,0 +1,63 @@
+# ── .NET / ASP.NET Core ───────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+appsettings.Development.json
+appsettings.*.json
+!appsettings.json
+
+# Entity Framework migrations (keep source, ignore snapshots binary)
+# *.Designer.cs  ← uncomment if you want to exclude migration designers
+
+# ── Secrets / Environment ─────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+**/appsettings.Development.json
+
+# ── Node / React Native / Expo ────────────────────────────────────
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn-integrity
+.pnp.*
+.pnp.js
+
+# Expo
+android/
+ios/
+
+# ── IDEs ──────────────────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Test results ──────────────────────────────────────────────────
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# ── Uploads / Storage ─────────────────────────────────────────────
+uploads/
+wwwroot/uploads/
