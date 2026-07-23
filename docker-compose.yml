@@ -1,0 +1,106 @@
+version: "3.9"
+
+# Food Delivery App — Full Stack Docker Compose
+# Usage:
+#   Development : docker compose up --build
+#   Production  : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+
+  # ── SQL Server ────────────────────────────────────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fooddelivery-db
+    environment:
+      SA_PASSWORD:          "${DB_SA_PASSWORD:-FoodDelivery@2024!}"
+      ACCEPT_EULA:          "Y"
+      MSSQL_PID:            "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P '${DB_SA_PASSWORD:-FoodDelivery@2024!}' -Q 'SELECT 1' || exit 1"]
+      interval: 15s
+      timeout:  10s
+      retries:  10
+    networks:
+      - fooddelivery-net
+    restart: unless-stopped
+
+  # ── ASP.NET Core API ──────────────────────────────────────────────
+  api:
+    build:
+      context:    ./backend
+      dockerfile: FoodDelivery.API/Dockerfile
+    container_name: fooddelivery-api
+    environment:
+      ASPNETCORE_ENVIRONMENT:                       "Production"
+      ASPNETCORE_URLS:                              "http://+:8080"
+      ConnectionStrings__DefaultConnection:         "Server=sqlserver;Database=FoodDeliveryDb;User Id=sa;Password=${DB_SA_PASSWORD:-FoodDelivery@2024!};TrustServerCertificate=True"
+      JwtSettings__SecretKey:                       "${JWT_SECRET:-ChangeThisToAStrongSecretIn.env!MinLength32}"
+      JwtSettings__Issuer:                          "FoodDeliveryApp"
+      JwtSettings__Audience:                        "FoodDeliveryApp"
+      JwtSettings__AccessTokenExpiryMinutes:        "15"
+      JwtSettings__RefreshTokenExpiryDays:          "7"
+      EmailSettings__SmtpHost:                      "${SMTP_HOST:-smtp.gmail.com}"
+      EmailSettings__SmtpPort:                      "${SMTP_PORT:-587}"
+      EmailSettings__SenderEmail:                   "${SMTP_EMAIL:-noreply@fooddelivery.com}"
+      EmailSettings__SenderName:                    "Food Delivery App"
+      EmailSettings__Username:                      "${SMTP_USERNAME}"
+      EmailSettings__Password:                      "${SMTP_PASSWORD}"
+      FirebaseSettings__CredentialFilePath:         "/app/firebase-adminsdk.json"
+      FirebaseSettings__ProjectId:                  "${FIREBASE_PROJECT_ID}"
+      FileStorage__UploadPath:                      "/app/wwwroot/uploads"
+      FileStorage__BaseUrl:                         "${API_BASE_URL:-http://localhost:8080}/uploads"
+      RateLimiting__AuthEndpointPermitLimit:        "5"
+      RateLimiting__AuthEndpointWindowSeconds:      "60"
+      RateLimiting__GlobalPermitLimit:              "100"
+      RateLimiting__GlobalWindowSeconds:            "60"
+    ports:
+      - "8080:8080"
+    volumes:
+      - api_uploads:/app/wwwroot/uploads
+      - api_logs:/app/logs
+      - ${FIREBASE_CREDENTIALS_PATH:-./firebase-adminsdk.json}:/app/firebase-adminsdk.json:ro
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - fooddelivery-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout:  10s
+      retries:  5
+
+  # ── Nginx Reverse Proxy ───────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: fooddelivery-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deployment/nginx/ssl:/etc/nginx/ssl:ro
+      - api_uploads:/var/www/uploads:ro
+    depends_on:
+      - api
+    networks:
+      - fooddelivery-net
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+    driver: local
+  api_uploads:
+    driver: local
+  api_logs:
+    driver: local
+
+networks:
+  fooddelivery-net:
+    driver: bridge

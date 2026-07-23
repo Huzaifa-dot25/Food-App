@@ -1,0 +1,41 @@
+version: "3.9"
+
+# Production overrides — merge with docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+    deploy:
+      resources:
+        limits:
+          cpus:   "1.0"
+          memory: "512M"
+        reservations:
+          cpus:   "0.25"
+          memory: "256M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  sqlserver:
+    deploy:
+      resources:
+        limits:
+          memory: "2G"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
